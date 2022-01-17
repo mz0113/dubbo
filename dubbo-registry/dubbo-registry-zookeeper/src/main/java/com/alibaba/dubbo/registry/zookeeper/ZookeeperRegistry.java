@@ -165,6 +165,7 @@ public class ZookeeperRegistry extends FailbackRegistry {
                 }
             } else {
                 List<URL> urls = new ArrayList<URL>();
+                //mzComment 一条URL解析出来 path = providers,routers,configurators
                 for (String path : toCategoriesPath(url)) {
                     ConcurrentMap<NotifyListener, ChildListener> listeners = zkListeners.get(url);
                     if (listeners == null) {
@@ -176,17 +177,21 @@ public class ZookeeperRegistry extends FailbackRegistry {
                         listeners.putIfAbsent(listener, new ChildListener() {
                             @Override
                             public void childChanged(String parentPath, List<String> currentChilds) {
+                                //mzComment 这里监听ZK providers 节点下面的回调什么的
+
                                 ZookeeperRegistry.this.notify(url, listener, toUrlsWithEmpty(url, parentPath, currentChilds));
                             }
                         });
                         zkListener = listeners.get(listener);
                     }
                     zkClient.create(path, false);
+                    //mzComment dubbo/com.alibaba.dubbo.demo.DemoService/providers 在这边添加监听器的同时，也会把child节点直接返回。就不用去zk再拉一次了。
                     List<String> children = zkClient.addChildListener(path, zkListener);
                     if (children != null) {
                         urls.addAll(toUrlsWithEmpty(url, path, children));
                     }
                 }
+                //mzComment 刚才已经拿到了children,现在直接调notify就可以刷新本地的RegistryDirector服务目录了,假装zk进行了节点变动的推送
                 notify(url, listener, urls);
             }
         } catch (Throwable e) {

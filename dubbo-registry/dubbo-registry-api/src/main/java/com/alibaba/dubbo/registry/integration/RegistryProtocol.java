@@ -272,13 +272,15 @@ public class RegistryProtocol implements Protocol {
     @Override
     @SuppressWarnings("unchecked")
     public <T> Invoker<T> refer(Class<T> type, URL url) throws RpcException {
+        //将registry开头的URL替换成zookeeper开头的URL
         url = url.setProtocol(url.getParameter(Constants.REGISTRY_KEY, Constants.DEFAULT_REGISTRY)).removeParameter(Constants.REGISTRY_KEY);
+        //获得具体注册中心，这里是 ZookeeperRegistryFactory
         Registry registry = registryFactory.getRegistry(url);
         if (RegistryService.class.equals(type)) {
             return proxyFactory.getInvoker((T) registry, type, url);
         }
 
-        // group="a,b" or group="*"
+        // group="a,b" or group="*" 之前的一些参数信息序列化为str,现在又解析为map了。里面放了诸如side=consumer之类的
         Map<String, String> qs = StringUtils.parseQueryString(url.getParameterAndDecoded(Constants.REFER_KEY));
         String group = qs.get(Constants.GROUP_KEY);
         if (group != null && group.length() > 0) {
@@ -294,24 +296,39 @@ public class RegistryProtocol implements Protocol {
         return ExtensionLoader.getExtensionLoader(Cluster.class).getExtension("mergeable");
     }
 
+    /**
+     * 1、注册consumer节点
+     * 2、订阅configurators,routers,providers三个节点的变动
+     * @param cluster
+     * @param registry
+     * @param type
+     * @param url
+     * @param <T>
+     * @return
+     */
     private <T> Invoker<T> doRefer(Cluster cluster, Registry registry, Class<T> type, URL url) {
+        //mzComment 服务目录,一个invoker有一个对应的服务目录
+        //RouterFactory routerFactory = ExtensionLoader.getExtensionLoader(RouterFactory.class).getExtension(routerkey);
+        //routers.add(routerFactory.getRouter(url));
+        //路由routers是在new RegistryDirectory<T>(type, url)构造函数里面建好的，除了上述的SPI加载的路由还有默认的script脚本路由和tag标签路由等也会一起加进去。
         RegistryDirectory<T> directory = new RegistryDirectory<T>(type, url);
         directory.setRegistry(registry);
         directory.setProtocol(protocol);
         // all attributes of REFER_KEY
-        Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());
+        Map<String, String> parameters = new HashMap<String, String>(directory.getUrl().getParameters());//consumer://192.168.148.1/com.alibaba.dubbo.demo.DemoService?application=demo-consumer&check=false&dubbo=2.0.2&interface=com.alibaba.dubbo.demo.DemoService&methods=sayHello&pid=26932&qos.port=33333&side=consumer&timestamp=1642333134073
         URL subscribeUrl = new URL(Constants.CONSUMER_PROTOCOL, parameters.remove(Constants.REGISTER_IP_KEY), 0, type.getName(), parameters);
         if (!Constants.ANY_VALUE.equals(url.getServiceInterface())
                 && url.getParameter(Constants.REGISTER_KEY, true)) {
             URL registeredConsumerUrl = getRegisteredConsumerUrl(subscribeUrl, url);
-            registry.register(registeredConsumerUrl);
+            registry.register(registeredConsumerUrl);//注册consumer节点了这一步就
             directory.setRegisteredConsumerUrl(registeredConsumerUrl);
         }
+        //mzComment 订阅configurators,routers,providers三个zk节点的变动
         directory.subscribe(subscribeUrl.addParameter(Constants.CATEGORY_KEY,
                 Constants.PROVIDERS_CATEGORY
                         + "," + Constants.CONFIGURATORS_CATEGORY
                         + "," + Constants.ROUTERS_CATEGORY));
-
+        //mzComment MockClusterWrapper->FailOverCluster->
         Invoker invoker = cluster.join(directory);
         ProviderConsumerRegTable.registerConsumer(invoker, url, subscribeUrl, directory);
         return invoker;

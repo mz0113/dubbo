@@ -160,7 +160,7 @@ public class ReferenceConfig<T> extends AbstractReferenceConfig {
         return urls;
     }
 
-    public synchronized T get() {
+    public synchronized T get() {new RuntimeException().printStackTrace();
         if (destroyed) {
             throw new IllegalStateException("Already destroyed!");
         }

@@ -264,6 +264,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
         }
         try {
             doNotify(url, listener, urls);
+            //throw new RuntimeException("myRun");
         } catch (Exception t) {
             // Record a failed registration request to a failed list, retry regularly
             Map<NotifyListener, List<URL>> listeners = failedNotified.get(url);
@@ -408,6 +409,7 @@ public abstract class FailbackRegistry extends AbstractRegistry {
             }
         }
         if (!failedNotified.isEmpty()) {
+            //zk的fallBackRegistry会定时重试 调用 listener.notify(urls);
             Map<URL, Map<NotifyListener, List<URL>>> failed = new HashMap<URL, Map<NotifyListener, List<URL>>>(failedNotified);
             for (Map.Entry<URL, Map<NotifyListener, List<URL>>> entry : new HashMap<URL, Map<NotifyListener, List<URL>>>(failed).entrySet()) {
                 if (entry.getValue() == null || entry.getValue().size() == 0) {

@@ -64,6 +64,7 @@ public class ProtocolListenerWrapper implements Protocol {
         if (Constants.REGISTRY_PROTOCOL.equals(url.getProtocol())) {
             return protocol.refer(type, url);
         }
+        //listener.referred(invoker);调用这段逻辑,相当于调用服务referred时的每个监听,在构造方法里面就会for循环调SPI加载的各个监听器
         return new ListenerInvokerWrapper<T>(protocol.refer(type, url),
                 Collections.unmodifiableList(
                         ExtensionLoader.getExtensionLoader(InvokerListener.class)

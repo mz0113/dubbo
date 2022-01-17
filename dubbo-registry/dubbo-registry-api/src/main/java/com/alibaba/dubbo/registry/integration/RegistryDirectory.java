@@ -262,6 +262,9 @@ public class RegistryDirectory<T> extends AbstractDirectory<T> implements Notify
             if (invokerUrls.isEmpty()) {
                 return;
             }
+            //toInvokers会生成dubboInvokers,在DubboProtocol协议会调用这句 DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
+            //DubboProtocol.getClients()会建立向服务器的netty连接
+            //com.alibaba.dubbo.rpc.protocol.ProtocolFilterWrapper.buildInvokerChain里面会构造调用的拦截器链,并且dubboInvoker是调用链的最后1个。
             Map<String, Invoker<T>> newUrlInvokerMap = toInvokers(invokerUrls);// Translate url list to Invoker map
             Map<String, List<Invoker<T>>> newMethodInvokerMap = toMethodInvokers(newUrlInvokerMap); // Change method name to map Invoker Map
             // state change
